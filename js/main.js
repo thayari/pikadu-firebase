@@ -37,6 +37,8 @@ const buttonNewPost = document.querySelector('.button-new-post');
 const newPostModal = document.querySelector('.modal-add-post');
 const addPostForm = document.querySelector('.add-post');
 
+const database = firebase.database;
+
 const listUsers = [
   {
     id: '01',
@@ -73,21 +75,10 @@ const setUsers = {
       .catch(err => {
         console.log(err.message);
       })
-
-    // const user = this.getUser(email);
-    // if (user && user.password === password) {
-    //   this.authorizedUser(user);
-    //   handler();
-    // } else {
-    //   alert('Пользователь с такими данными не найден.');
-    // };
-    // loginForm.reset();
   },
 
   logOut() {
     firebase.auth().signOut();
-    // this.user = null;
-    // handler();
   },
 
   signUp(email, password, handler) {
@@ -124,7 +115,7 @@ const setUsers = {
   editUser(displayName, userpic, handler) {
 
     const user = firebase.auth().currentUser;
-    
+
     if (displayName) {
       user.updateProfile({
         displayName,
@@ -135,12 +126,6 @@ const setUsers = {
         userpic,
       }).then(handler);
     }
-
-    this.user.displayName = displayName;
-    if (userpic) {
-      this.user.userpic = userpic;
-    };
-
     handler();
     toggleEdit();
   },
@@ -156,7 +141,6 @@ const setUsers = {
       // An error happened.
     });
   }
-
 };
 
 const setPosts = {
@@ -224,7 +208,7 @@ const setPosts = {
           <a href="#" class="author-username">${item.author.displayName}</a>
           <span class="post-time">${item.date}</span>
         </div>
-        <a href="#" class="author-link"><img src="${item.author.userpic || 'img/avatar.jpeg'}" alt="avatar" class="author-avatar"></a>
+        <a href="#" class="author-link"><img src="${item.author.userpic}" alt="avatar" class="author-avatar"></a>
       </div>
     </div>
   </section>`
@@ -241,21 +225,21 @@ const setPosts = {
       title,
       text,
       tags: tags.split(',').map(item => item.trim()),
-      author: {displayName: setUsers.user.displayName, userpic: setUsers.user.userpic},
-      date: new Date().toLocalDateString,
+      author: {displayName: setUsers.user.displayName, userpic: setUsers.user.userpic || 'img/avatar.jpeg'},
+      date: new Date().toLocaleDateString(),
       likes: 0,
       comments: 0,
     };
     this.allPosts.unshift(post);
 
-    firebase.database().ref('post').set(this.allPosts)
-      .then(() => this.getPosts(handler))
-    // showAllPosts();
-    // addPostForm.reset();
+    database().ref('posts').set(this.allPosts)
+      .then(() => this.getPosts(handler));
+    addPostForm.reset();
   },
 
   getPosts(handler) {
-    firebase.database().ref('post').on('value', snapshot => {
+    database().ref('posts').once('value', snapshot => {
+      console.dir(snapshot.val());
       this.allPosts = snapshot.val() || [];
       if (handler) {
         handler();
@@ -272,9 +256,11 @@ const toggleAuthDom = () => {
     userElem.style.display = '';
     userNameElem.textContent = user.displayName;
     userpicElem.src = user.userpic || userpicElem.src;
+    buttonNewPost.style.display = '';
   } else {
     loginElem.style.display = '';
     userElem.style.display = 'none';
+    buttonNewPost.style.display = 'none';
   }
 };
 
@@ -347,7 +333,7 @@ const init = () => {
     //const formElements = [...addPostForm.elements];
     const { title, text, tags } = addPostForm.elements; 
 
-    setPosts.addPost(title.value, text.value, tags.value);
+    setPosts.addPost(title.value, text.value, tags.value, showAllPosts);
     toggleHidden(newPostModal);
   });
 
@@ -359,8 +345,8 @@ const init = () => {
   })
 
   setUsers.initUser(toggleAuthDom);
-  setPosts.getPosts()
-  showAllPosts();
+  setPosts.getPosts(showAllPosts);
+  // showAllPosts();
   //toggleAuthDom();
 }
 
